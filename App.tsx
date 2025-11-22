@@ -214,7 +214,8 @@ const App: React.FC = () => {
   const [loginPass, setLoginPass] = useState('');
   
   // Data
-  const [rawData, setRawData] = useState<RawSalesData[]>([]);
+  // rawData is not strictly used for display, but kept in state for data consistency
+  const [, setRawData] = useState<RawSalesData[]>([]);
   const [processedData, setProcessedData] = useState<ProcessedSalesData[]>([]);
   const [isCustomData, setIsCustomData] = useState(false);
   
@@ -749,7 +750,7 @@ const App: React.FC = () => {
                             dataKey="value"
                             label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
                          >
-                           {deptStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                           {deptStats.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                          </Pie>
                          <RechartsTooltip formatter={(val: number, name: string, props: any) => [
                             `${formatWan(val)} (${props.payload.percentage.toFixed(2)}%)`, 
@@ -788,7 +789,7 @@ const App: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%">
                            <PieChart>
                               <Pie data={catStats} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                                {catStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />)}
+                                {catStats.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />)}
                               </Pie>
                               <RechartsTooltip formatter={(val: number, name: string, props: any) => [
                                 `${formatWan(val)} (${props.payload.percentage.toFixed(2)}%)`, 
@@ -853,7 +854,7 @@ const App: React.FC = () => {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                          <Pie data={catStats} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                           {catStats.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                           {catStats.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                          </Pie>
                          <RechartsTooltip formatter={(val: number, name: string, props: any) => [
                             `${formatWan(val)} (${props.payload.percentage.toFixed(2)}%)`, 

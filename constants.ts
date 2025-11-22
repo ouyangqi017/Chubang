@@ -1,4 +1,5 @@
 
+
 import { CategoryRule, RawSalesData } from './types';
 
 // ----------------------------------------------------------------------
@@ -558,7 +559,7 @@ export const DEFAULT_SUB_CATEGORY = '未分类';
 // ----------------------------------------------------------------------
 // MOCK DATA GENERATOR
 // ----------------------------------------------------------------------
-const BUSINESS_UNITS = ['国内事业部', '海外事业部'];
+// Removed unused BUSINESS_UNITS
 const DEPTS_DOMESTIC = ['销售一部', '销售二部', '渠道部'];
 const DEPTS_OVERSEAS = ['北美组', '欧洲组', '亚太组'];
 const SALES_NAMES = ['张三', '李四', '王五', '赵六', '钱七', '孙八', 'Alice', 'Bob', 'Charlie'];
