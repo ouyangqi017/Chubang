@@ -1,12 +1,12 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
 import { 
-  LayoutDashboard, Download, Filter, Search, User, LogOut, Briefcase, Layers, Package, Users, ChevronDown, ChevronLeft, ChevronRight, Upload, RefreshCcw
+  LayoutDashboard, Download, Filter, Search, User, LogOut, Briefcase, Layers, Package, Users, ChevronDown, ChevronLeft, ChevronRight, Upload, RefreshCcw, FileSpreadsheet
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { RawSalesData, ProcessedSalesData, FilterState, UserSession, ChartDataPoint } from './types';
 import { generateMockData } from './constants';
 import { processData, getAvailableYears, filterData, aggregateByField, getTrendData } from './services/dataProcessor';
@@ -274,63 +274,106 @@ const App: React.FC = () => {
     }
   };
 
+  const processImportedData = (rawData: any[]) => {
+    try {
+      const mappedData: RawSalesData[] = rawData.map((item: any) => {
+        // 解析日期：支持 String, MongoDB $date, Excel Date Object, Excel Serial Number (如果未被库处理)
+        let dateStr = '';
+        
+        if (item['发货日期'] instanceof Date) {
+          // Excel (cellDates: true)
+          dateStr = item['发货日期'].toISOString().split('T')[0];
+        } else if (item['date'] instanceof Date) {
+           dateStr = item['date'].toISOString().split('T')[0];
+        } else if (typeof item['发货日期'] === 'string') {
+          // String
+          dateStr = item['发货日期'];
+        } else if (item['发货日期'] && item['发货日期']['$date']) {
+          // MongoDB JSON
+          dateStr = item['发货日期']['$date'];
+        } else if (item['date']) {
+          dateStr = String(item['date']);
+        }
+        
+        // Fallback for date parsing
+        const finalDate = dateStr ? dateStr.split('T')[0] : new Date().toISOString().split('T')[0];
+
+        return {
+          businessUnit: item['事业部'] || item.businessUnit || '',
+          department: item['部门'] || item.department || '',
+          salesperson: item['业务员'] || item.salesperson || '',
+          date: finalDate,
+          customerName: item['客户名称'] || item.customerName || '未知客户',
+          companyName: item['总公司名称'] || item.companyName || '',
+          sku: item['单品编码'] || item.sku || '',
+          productName: item['单品名称'] || item.productName || '未知商品',
+          quantity: Number(item['发货数量'] || item.quantity || 0),
+          amount: Number(item['发货含税金额本币（元）'] || item.amount || 0),
+        };
+      });
+
+      // 过滤掉无效数据
+      const validData = mappedData.filter(d => d.productName && d.date && d.amount !== undefined);
+
+      if (validData.length > 0) {
+         updateData(validData);
+         setIsCustomData(true);
+         alert(`成功导入 ${validData.length} 条数据！`);
+      } else {
+         alert('导入失败：未能识别有效数据。请检查文件字段名（如：单品名称、发货日期、发货含税金额本币（元））。');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('数据解析发生错误，请检查文件格式。');
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const json = JSON.parse(e.target?.result as string);
-        if (Array.isArray(json)) {
-          const mappedData: RawSalesData[] = json.map((item: any) => {
-            // 解析日期：处理 MongoDB $date 格式或普通字符串
-            let dateStr = '';
-            if (item['发货日期']) {
-              if (typeof item['发货日期'] === 'string') {
-                dateStr = item['发货日期'];
-              } else if (item['发货日期']['$date']) {
-                dateStr = item['发货日期']['$date'];
-              }
-            }
-            // 如果解析失败或为空，默认为今天（或者您可以跳过该条目）
-            const finalDate = dateStr ? dateStr.split('T')[0] : new Date().toISOString().split('T')[0];
+    const isJson = file.name.toLowerCase().endsWith('.json');
+    const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
 
-            return {
-              businessUnit: item['事业部'] || item.businessUnit || '',
-              department: item['部门'] || item.department || '',
-              salesperson: item['业务员'] || item.salesperson || '',
-              date: finalDate,
-              customerName: item['客户名称'] || item.customerName || '未知客户',
-              companyName: item['总公司名称'] || item.companyName || '',
-              sku: item['单品编码'] || item.sku || '',
-              productName: item['单品名称'] || item.productName || '未知商品',
-              quantity: Number(item['发货数量'] || item.quantity || 0),
-              // 映射中文 "发货含税金额本币（元）" 到 "amount"
-              amount: Number(item['发货含税金额本币（元）'] || item.amount || 0),
-            };
-          });
-
-          // 过滤掉没有金额或日期的无效数据（可选）
-          const validData = mappedData.filter(d => d.productName && d.date);
-
-          if (validData.length > 0) {
-             updateData(validData);
-             setIsCustomData(true);
-             alert(`成功导入 ${validData.length} 条数据！(已自动识别中文列名)`);
+    if (isJson) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const json = JSON.parse(e.target?.result as string);
+          if (Array.isArray(json)) {
+            processImportedData(json);
           } else {
-             alert('导入失败：未能识别有效数据。请检查 JSON 文件格式是否包含“单品名称”、“发货日期”和“发货含税金额本币（元）”等字段。');
+            alert('JSON 文件必须包含一个数组。');
           }
-        } else {
-          alert('上传的文件必须包含一个 JSON 数组。');
+        } catch (error) {
+          console.error(error);
+          alert('解析 JSON 失败。');
         }
-      } catch (error) {
-        console.error(error);
-        alert('解析 JSON 文件失败，请检查文件格式是否正确。');
-      }
-    };
-    reader.readAsText(file);
-    // Reset input so same file can be selected again if needed
+      };
+      reader.readAsText(file);
+    } else if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          // 取第一个 Sheet
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          // 转换为 JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          processImportedData(jsonData);
+        } catch (error) {
+           console.error(error);
+           alert('解析 Excel 失败，请确保文件未加密且格式正确。');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('不支持的文件格式。请上传 .json, .xlsx 或 .xls 文件。');
+    }
+
+    // Reset input
     event.target.value = ''; 
   };
 
@@ -339,7 +382,7 @@ const App: React.FC = () => {
     e.preventDefault();
     if (loginUser === 'admin' && loginPass === 'admin') {
       setUser({ role: 'admin', username: '管理员' });
-    } else if (loginPass === '123') {
+    } else if (loginPass === 'abcd1234') {
       setUser({ role: 'department', username: loginUser, departmentFilter: loginUser });
       setFilters(prev => ({ ...prev, department: loginUser }));
     } else {
@@ -470,7 +513,7 @@ const App: React.FC = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 text-white mb-4 shadow-lg">
               <LayoutDashboard size={32} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">销售数据洞察 Pro</h1>
+            <h1 className="text-2xl font-bold text-slate-800">厨邦发货数据洞察 Pro</h1>
             <p className="text-slate-500 mt-2 text-sm">安全数据可视化门户</p>
           </div>
           
@@ -482,7 +525,7 @@ const App: React.FC = () => {
                 value={loginUser} 
                 onChange={e => setLoginUser(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                placeholder="输入 admin 或 部门名称"
+                placeholder="输入账号"
               />
             </div>
             <div>
@@ -492,7 +535,7 @@ const App: React.FC = () => {
                 value={loginPass}
                 onChange={e => setLoginPass(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                placeholder="输入 admin 或 123"
+                placeholder="输入密码"
               />
             </div>
             <button 
@@ -503,7 +546,7 @@ const App: React.FC = () => {
             </button>
           </form>
           <div className="mt-6 text-center text-xs text-slate-400">
-            兼容本地 MongoDB 导出数据
+            兼容本地 Excel / JSON 数据导入
           </div>
         </div>
       </div>
@@ -520,7 +563,7 @@ const App: React.FC = () => {
               <LayoutDashboard size={20} />
            </div>
            <div>
-             <h1 className="font-bold text-lg leading-tight">销售数据洞察</h1>
+             <h1 className="font-bold text-lg leading-tight">厨邦发货数据洞察</h1>
              <div className="text-xs text-slate-500 flex items-center gap-1">
                <span className={`w-2 h-2 rounded-full ${user.role === 'admin' ? 'bg-purple-500' : 'bg-green-500'}`}></span>
                {user.username} 视图
@@ -535,7 +578,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <input 
                     type="file" 
-                    accept=".json" 
+                    accept=".json,.xlsx,.xls" 
                     id="file-upload" 
                     className="hidden" 
                     onChange={handleFileUpload}
@@ -544,8 +587,8 @@ const App: React.FC = () => {
                     htmlFor="file-upload" 
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                   >
-                    <Upload size={16} />
-                    导入 JSON 数据
+                    <FileSpreadsheet size={16} />
+                    导入数据 (Excel/JSON)
                   </label>
                   {isCustomData && (
                     <button
@@ -584,7 +627,7 @@ const App: React.FC = () => {
            {/* LEFT: Total Revenue */}
            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-6 text-white shadow-lg shadow-purple-500/20 relative overflow-hidden">
               <div className="absolute right-0 top-0 p-4 opacity-10"><Users size={100} /></div>
-              <p className="text-purple-100 text-sm font-medium mb-1 uppercase tracking-wider">总销售额</p>
+              <p className="text-purple-100 text-sm font-medium mb-1 uppercase tracking-wider">总发货额</p>
               <h2 className="text-4xl font-bold flex items-baseline gap-2">
                 {formatWan(totalAmount)}
                 <span className="text-lg opacity-70 font-normal">RMB</span>
@@ -594,13 +637,13 @@ const App: React.FC = () => {
            {/* RIGHT: Total Quantity */}
            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-blue-500/20 relative overflow-hidden">
               <div className="absolute right-0 top-0 p-4 opacity-10"><Package size={100} /></div>
-              <p className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">总订购件</p>
+              <p className="text-blue-100 text-sm font-medium mb-1 uppercase tracking-wider">总件数</p>
               <h2 className="text-4xl font-bold">{totalQty.toLocaleString()}</h2>
            </div>
         </div>
 
         {/* Advanced Filter Bar */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 animate-fade-in-up">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 animate-fade-in-up relative z-30">
            <div className="flex items-center gap-2 mb-4 text-slate-700 font-bold text-sm uppercase tracking-wide">
               <Filter size={16} />
               数据筛选

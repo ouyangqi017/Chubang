@@ -1,4 +1,4 @@
-# 销售数据洞察 Pro (Sales Data Insight Pro)
+# 厨邦发货数据洞察 Pro (Sales Data Insight Pro)
 
 这是一个现代化数据可视化仪表盘项目，提供 **React (Web)** 和 **Python (Streamlit)** 两个版本。项目支持数据自动分类处理，并集成了 Google Gemini AI 进行智能业务分析。
 
