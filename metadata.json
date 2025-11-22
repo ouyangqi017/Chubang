@@ -1,0 +1,5 @@
+{
+  "name": "厨邦发货数据统计",
+  "description": "用于可视化历史销售数据、执行自动产品分类并生成 AI 驱动的业务洞察的静态仪表板。",
+  "requestFramePermissions": []
+}
