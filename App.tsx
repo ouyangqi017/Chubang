@@ -4,7 +4,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell 
 } from 'recharts';
 import { 
-  LayoutDashboard, Download, Filter, Search, User, LogOut, Briefcase, Layers, Package, Users, ChevronDown, ChevronLeft, ChevronRight, Upload, RefreshCcw, FileSpreadsheet
+  LayoutDashboard, Download, Filter, Search, User, LogOut, Briefcase, Layers, Package, Users, ChevronDown, ChevronLeft, ChevronRight, RefreshCcw, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { RawSalesData, ProcessedSalesData, FilterState, UserSession, ChartDataPoint } from './types';
